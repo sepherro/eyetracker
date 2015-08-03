@@ -22,6 +22,8 @@ class EyeTracker:
         ret, img = self.video_capture.read()
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         faces = self.face_cascade.detectMultiScale(gray, 1.3, 15)
+        # faces are detected as a list of vectors [x_ulc, y_ulc, f_width, f_height] - ulc -upper left corner
+
         for (x, y, w, h) in faces:
             if self.display_results:
                 cv2.rectangle(img, (x, y), (x + w, y + h), (255, 0, 0), 2)
