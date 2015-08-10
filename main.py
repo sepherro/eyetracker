@@ -13,6 +13,12 @@ class EyeTracker:
         self.image = None
         self.gray = None
 
+    def _normalize_vector(self, v):
+        norm = np.linalg.norm(v)
+        if norm == 0:
+            return v
+        return v/norm
+
     def grab_convert_frame(self):
         ret, img = self.video_capture.read()
         self.image = img
@@ -45,7 +51,28 @@ class EyeTracker:
             roi_gray = self.gray[y:y + h, x:x + w]
             roi_gray_blurred = cv2.GaussianBlur(roi_gray, (5, 5), 0.05*h, 0.05*w)
             cv2.imshow('roi', roi_gray_blurred)
-        pass
+            x_derivative = cv2.filter2D(roi_gray_blurred, cv2.CV_32F, dx)
+            y_derivative = cv2.filter2D(roi_gray_blurred, cv2.CV_32F, dy)
+            # magic starts here
+            for (ex, ey, ew, eh) in self.eyes:
+                for outer_cols in xrange(ex, ex+ew):
+                    for outer_rows in xrange(ey, ey+eh):
+                        response_matrix = np.zeros((ew, eh))
+                        for inner_cols in xrange(ex, ex+ew):
+                            for inner_rows in xrange(ey, ey+eh):
+                                center_vector = [outer_cols - inner_cols, outer_rows - inner_rows]
+                                gradient_vector = [x_derivative[inner_cols, inner_rows], y_derivative[inner_cols, inner_rows]]
+                                center_vector_norm = self._normalize_vector(center_vector)
+                                gradient_vector_norm = self._normalize_vector(gradient_vector)
+                                response_raw = np.dot(center_vector_norm, gradient_vector_norm)
+                                response_normalized = (float(255 - roi_gray_blurred[inner_cols, inner_rows])/255) * response_raw
+                                response_matrix[inner_cols-ex, inner_rows-ey] = response_normalized
+
+                    response_matrix_disp = (response_matrix/np.max(response_matrix))
+                    cv2.imshow("pupil", response_matrix_disp)
+                    cv2.waitKey(1)
+
+
 
     def cleanup(self):
         self.video_capture.release()
